@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { CubicleCard } from '@/components/CubicleCard';
 import { BookingModal } from '@/components/BookingModal';
 import { ImportStudents } from '@/components/ImportStudents';
+import { Reports } from '@/components/Reports';
 import { useCubicles } from '@/context/CubiclesContext';
 import { Building2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const Index = () => {
   const { cubicles } = useCubicles();
@@ -36,42 +38,67 @@ const Index = () => {
           </div>
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
-          className="grid grid-cols-1 sm:grid-cols-2 gap-6"
-        >
-          {cubicles.map((cubicle, index) => (
-            <motion.div
-              key={cubicle.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 * index }}
-            >
-              <CubicleCard
-                cubicle={cubicle}
-                onClick={() => setSelectedCubicle(cubicle.id)}
-              />
-            </motion.div>
-          ))}
-        </motion.div>
+        <Tabs defaultValue="cubicles" className="w-full">
+          <TabsList className="grid w-full sm:w-auto sm:inline-flex mb-6">
+            <TabsTrigger value="cubicles" className="gap-2">
+              <Building2 className="w-4 h-4" />
+              Cubículos
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+              Reportes
+            </TabsTrigger>
+          </TabsList>
 
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="mt-8 p-6 bg-card rounded-xl border border-border"
-        >
-          <h2 className="text-lg font-semibold text-foreground mb-2">
-            Información
-          </h2>
-          <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• Duración máxima: 6 horas por reserva</li>
-            <li>• Los cubículos disponibles se pueden rentar inmediatamente</li>
-            <li>• Importa tu base de datos de estudiantes en formato CSV o JSON</li>
-          </ul>
-        </motion.div>
+          <TabsContent value="cubicles" className="mt-0">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="grid grid-cols-1 sm:grid-cols-2 gap-6"
+            >
+              {cubicles.map((cubicle, index) => (
+                <motion.div
+                  key={cubicle.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 * index }}
+                >
+                  <CubicleCard
+                    cubicle={cubicle}
+                    onClick={() => setSelectedCubicle(cubicle.id)}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5 }}
+              className="mt-8 p-6 bg-card rounded-xl border border-border"
+            >
+              <h2 className="text-lg font-semibold text-foreground mb-2">
+                Información
+              </h2>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Duración máxima: 6 horas por reserva</li>
+                <li>• Los cubículos disponibles se pueden rentar inmediatamente</li>
+                <li>• Importa tu base de datos de estudiantes en formato CSV o JSON</li>
+              </ul>
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="reports" className="mt-0">
+            <Reports />
+          </TabsContent>
+        </Tabs>
       </div>
 
       <BookingModal
