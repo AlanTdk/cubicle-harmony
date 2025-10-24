@@ -14,7 +14,99 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      cubicles: {
+        Row: {
+          created_at: string | null
+          id: number
+          is_occupied: boolean | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id: number
+          is_occupied?: boolean | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: number
+          is_occupied?: boolean | null
+          name?: string
+        }
+        Relationships: []
+      }
+      rentals: {
+        Row: {
+          created_at: string | null
+          cubicle_id: number
+          end_time: string
+          hours: number
+          id: string
+          is_active: boolean | null
+          start_time: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          cubicle_id: number
+          end_time: string
+          hours: number
+          id?: string
+          is_active?: boolean | null
+          start_time?: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string | null
+          cubicle_id?: number
+          end_time?: string
+          hours?: number
+          id?: string
+          is_active?: boolean | null
+          start_time?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rentals_cubicle_id_fkey"
+            columns: ["cubicle_id"]
+            isOneToOne: false
+            referencedRelation: "cubicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rentals_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          career: string
+          control_number: string
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          career: string
+          control_number: string
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          career?: string
+          control_number?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
