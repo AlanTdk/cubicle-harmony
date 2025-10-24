@@ -1,0 +1,32 @@
+[
+  {
+    "id": "1",
+    "name": "Juan Pérez García",
+    "controlNumber": "20210001",
+    "career": "Ingeniería en Sistemas Computacionales"
+  },
+  {
+    "id": "2",
+    "name": "María González López",
+    "controlNumber": "20210002",
+    "career": "Ingeniería Industrial"
+  },
+  {
+    "id": "3",
+    "name": "Carlos Rodríguez Martínez",
+    "controlNumber": "20210003",
+    "career": "Ingeniería Electrónica"
+  },
+  {
+    "id": "4",
+    "name": "Ana Sánchez Torres",
+    "controlNumber": "20210004",
+    "career": "Arquitectura"
+  },
+  {
+    "id": "5",
+    "name": "Luis Hernández Ramírez",
+    "controlNumber": "20210005",
+    "career": "Ingeniería Civil"
+  }
+]
