@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useCubicles } from '@/context/CubiclesContext';
+import { supabase } from '@/integrations/supabase/client';
 import { FileText, Calendar, Download, Clock } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { format, subDays, subWeeks, subMonths, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
+import { format, subWeeks, subMonths, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useToast } from '@/hooks/use-toast';
 
 type TimeRange = 'day' | 'week' | 'month';
 
@@ -19,9 +20,15 @@ interface ReportData {
 }
 
 export const Reports = () => {
-  const { cubicles } = useCubicles();
   const [selectedRange, setSelectedRange] = useState<TimeRange>('day');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [reportData, setReportData] = useState<ReportData>({
+    totalRentals: 0,
+    totalHours: 0,
+    cubicleUsage: {},
+    topStudents: []
+  });
+  const { toast } = useToast();
 
   const getRangeLabel = (range: TimeRange) => {
     switch (range) {
@@ -58,36 +65,63 @@ export const Reports = () => {
     return { startDate, endDate: endOfDay(now) };
   };
 
-  const calculateReportData = (range: TimeRange): ReportData => {
+  const fetchReportData = async (range: TimeRange) => {
     const { startDate, endDate } = getDateRange(range);
     
-    // Simulación de datos para el reporte
-    const reportData: ReportData = {
-      totalRentals: 0,
-      totalHours: 0,
-      cubicleUsage: {},
-      topStudents: []
-    };
+    try {
+      const { data: rentalsData, error } = await supabase
+        .from('rentals')
+        .select('*, students(name)')
+        .gte('start_time', startDate.toISOString())
+        .lte('start_time', endDate.toISOString());
 
-    cubicles.forEach(cubicle => {
-      if (cubicle.isOccupied && cubicle.startTime) {
-        const startTime = new Date(cubicle.startTime);
-        if (isAfter(startTime, startDate) && isBefore(startTime, endDate)) {
-          reportData.totalRentals++;
-          reportData.totalHours += cubicle.hours || 0;
-          reportData.cubicleUsage[cubicle.id] = (reportData.cubicleUsage[cubicle.id] || 0) + 1;
-        }
+      if (error) {
+        console.error('Error fetching report data:', error);
+        toast({
+          title: "Error",
+          description: "No se pudieron cargar los datos del reporte",
+          variant: "destructive"
+        });
+        return;
       }
-    });
 
-    return reportData;
+      const data: ReportData = {
+        totalRentals: rentalsData?.length || 0,
+        totalHours: rentalsData?.reduce((sum, r) => sum + r.hours, 0) || 0,
+        cubicleUsage: {},
+        topStudents: []
+      };
+
+      rentalsData?.forEach(rental => {
+        data.cubicleUsage[rental.cubicle_id] = (data.cubicleUsage[rental.cubicle_id] || 0) + 1;
+      });
+
+      // Calculate top students
+      const studentRentals: { [key: string]: number } = {};
+      rentalsData?.forEach(rental => {
+        const studentName = rental.students?.name || 'Desconocido';
+        studentRentals[studentName] = (studentRentals[studentName] || 0) + 1;
+      });
+
+      data.topStudents = Object.entries(studentRentals)
+        .map(([name, rentals]) => ({ name, rentals }))
+        .sort((a, b) => b.rentals - a.rentals)
+        .slice(0, 5);
+
+      setReportData(data);
+    } catch (error) {
+      console.error('Error in fetchReportData:', error);
+    }
   };
+
+  useEffect(() => {
+    fetchReportData(selectedRange);
+  }, [selectedRange]);
 
   const generatePDF = async () => {
     setIsGenerating(true);
     
     try {
-      const reportData = calculateReportData(selectedRange);
       const { startDate, endDate } = getDateRange(selectedRange);
       
       const doc = new jsPDF();
@@ -194,8 +228,6 @@ export const Reports = () => {
       setIsGenerating(false);
     }
   };
-
-  const reportData = calculateReportData(selectedRange);
 
   return (
     <div className="space-y-6">

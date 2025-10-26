@@ -10,7 +10,7 @@ export const ImportStudents = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { importStudents } = useCubicles();
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -19,19 +19,18 @@ export const ImportStudents = () => {
     if (fileExtension === 'csv') {
       Papa.parse(file, {
         header: true,
-        complete: (results) => {
+        complete: async (results) => {
           try {
             const students: Student[] = results.data
               .filter((row: any) => row.name && row.controlNumber && row.career)
-              .map((row: any, index: number) => ({
-                id: `imported-${Date.now()}-${index}`,
+              .map((row: any) => ({
                 name: row.name,
                 controlNumber: row.controlNumber,
                 career: row.career,
               }));
 
             if (students.length > 0) {
-              importStudents(students);
+              await importStudents(students);
               toast.success(`${students.length} estudiantes importados exitosamente`);
             } else {
               toast.error('No se encontraron datos válidos en el archivo');
@@ -46,13 +45,13 @@ export const ImportStudents = () => {
       });
     } else if (fileExtension === 'json') {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const data = JSON.parse(e.target?.result as string);
           const students: Student[] = Array.isArray(data) ? data : [];
           
           if (students.length > 0) {
-            importStudents(students);
+            await importStudents(students);
             toast.success(`${students.length} estudiantes importados exitosamente`);
           } else {
             toast.error('No se encontraron datos válidos en el archivo');

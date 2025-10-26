@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import { Cubicle } from '@/types/student';
-import { Clock, User } from 'lucide-react';
+import { Clock, User, XCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useCubicles } from '@/context/CubiclesContext';
 
 interface CubicleCardProps {
   cubicle: Cubicle;
@@ -8,6 +10,8 @@ interface CubicleCardProps {
 }
 
 export const CubicleCard = ({ cubicle, onClick }: CubicleCardProps) => {
+  const { releaseCubicle } = useCubicles();
+
   return (
     <motion.div
       whileHover={!cubicle.isOccupied ? { scale: 1.05 } : {}}
@@ -69,7 +73,24 @@ export const CubicleCard = ({ cubicle, onClick }: CubicleCardProps) => {
           )}
         </div>
 
-        {!cubicle.isOccupied && (
+        {cubicle.isOccupied && cubicle.student ? (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async (e) => {
+              e.stopPropagation();
+              try {
+                await releaseCubicle(cubicle.id);
+              } catch (error) {
+                console.error('Error releasing cubicle:', error);
+              }
+            }}
+            className="mt-4 w-full"
+          >
+            <XCircle className="w-4 h-4 mr-2" />
+            Liberar Cubículo
+          </Button>
+        ) : (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}

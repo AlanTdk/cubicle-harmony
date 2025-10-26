@@ -49,28 +49,35 @@ export const BookingModal = ({ isOpen, onClose, cubicleId }: BookingModalProps) 
     setStep('details');
   };
 
-  const handleRegisterNewStudent = () => {
+  const handleRegisterNewStudent = async () => {
     if (!newStudent.name || !newStudent.controlNumber || !newStudent.career) {
       toast.error('Por favor completa todos los campos');
       return;
     }
 
     const student: Student = {
-      id: Date.now().toString(),
-      ...newStudent,
+      controlNumber: newStudent.controlNumber,
+      name: newStudent.name,
+      career: newStudent.career,
     };
 
-    addStudent(student);
-    setSelectedStudent(student);
-    setStep('details');
-    toast.success('Alumno registrado exitosamente');
+    const addedStudent = await addStudent(student);
+    if (addedStudent) {
+      setSelectedStudent(addedStudent);
+      setStep('details');
+      toast.success('Alumno registrado exitosamente');
+    }
   };
 
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     if (selectedStudent) {
-      rentCubicle(cubicleId, selectedStudent, hours);
-      toast.success(`Cubículo ${cubicleId} rentado exitosamente`);
-      resetAndClose();
+      try {
+        await rentCubicle(cubicleId, selectedStudent, hours);
+        toast.success(`Cubículo ${cubicleId} rentado exitosamente`);
+        resetAndClose();
+      } catch (error) {
+        console.error('Error confirming booking:', error);
+      }
     }
   };
 
