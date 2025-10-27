@@ -18,12 +18,12 @@ type Step = 'search' | 'register' | 'details' | 'confirm';
 
 const careers = [
   'Ingeniería en Sistemas Computacionales',
-  'Ingeniería Industrial',
-  'Ingeniería Electrónica',
-  'Ingeniería Civil',
-  'Arquitectura',
+  'Ingeniería en Logística',
+  'Ingeniería en Gestión Empresarial',
+  'Ingeniería en Mecatrónica',
   'Ingeniería Mecánica',
-  'Ingeniería Química',
+  'Ingeniería Eléctrica',
+  'Ingeniería Electrónica',
 ];
 
 export const BookingModal = ({ isOpen, onClose, cubicleId }: BookingModalProps) => {
