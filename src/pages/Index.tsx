@@ -5,11 +5,15 @@ import { BookingModal } from '@/components/BookingModal';
 import { ImportStudents } from '@/components/ImportStudents';
 import { Reports } from '@/components/Reports';
 import { useCubicles } from '@/context/CubiclesContext';
-import { Building2 } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { Building2, LogOut, Shield, User } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const Index = () => {
   const { cubicles, loading } = useCubicles();
+  const { user, role, signOut } = useAuth();
   const [selectedCubicle, setSelectedCubicle] = useState<number | null>(null);
 
   if (loading) {
@@ -25,7 +29,32 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container mx-auto px-4 py-4 max-w-6xl">
+        {/* Header with user info */}
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6 flex items-center justify-between gap-4 pb-4 border-b border-border"
+        >
+          <div className="flex items-center gap-3">
+            {role === 'admin' ? (
+              <Shield className="w-5 h-5 text-primary" />
+            ) : (
+              <User className="w-5 h-5 text-primary" />
+            )}
+            <div>
+              <p className="text-sm text-muted-foreground">{user?.email}</p>
+              <Badge variant={role === 'admin' ? 'default' : 'secondary'} className="mt-1">
+                {role === 'admin' ? 'Administrador' : 'Bibliotecario'}
+              </Badge>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={signOut} className="gap-2">
+            <LogOut className="w-4 h-4" />
+            Cerrar Sesión
+          </Button>
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
