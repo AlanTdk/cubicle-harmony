@@ -23,74 +23,75 @@ export const CubiclesProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   const fetchCubicles = async () => {
-    const { data: cubiclesData, error: cubiclesError } = await supabase
-      .from('cubicles')
-      .select('*')
-      .order('id');
+    try {
+      const { data: cubiclesData, error: cubiclesError } = await supabase
+        .from('cubicles')
+        .select('id, is_occupied')
+        .order('id');
 
-    if (cubiclesError) {
-      console.error('Error fetching cubicles:', cubiclesError);
+      if (cubiclesError) throw cubiclesError;
+
+      const { data: rentalsData, error: rentalsError } = await supabase
+        .from('rentals')
+        .select('cubicle_id, hours, start_time, students!inner(id, control_number, name, career)')
+        .eq('is_active', true);
+
+      if (rentalsError) throw rentalsError;
+
+      const rentalMap = new Map(
+        rentalsData?.map(r => [r.cubicle_id, r]) || []
+      );
+
+      const cubiclesWithRentals: Cubicle[] = cubiclesData.map(cubicle => {
+        const rental = rentalMap.get(cubicle.id);
+        return {
+          id: cubicle.id,
+          isOccupied: cubicle.is_occupied,
+          student: rental?.students ? {
+            id: rental.students.id,
+            controlNumber: rental.students.control_number,
+            name: rental.students.name,
+            career: rental.students.career
+          } : undefined,
+          hours: rental?.hours,
+          startTime: rental?.start_time ? new Date(rental.start_time) : undefined
+        };
+      });
+
+      setCubicles(cubiclesWithRentals);
+    } catch (error) {
       toast({
         title: "Error",
         description: "No se pudieron cargar los cubículos",
         variant: "destructive"
       });
-      return;
     }
-
-    // Get active rentals for each cubicle
-    const { data: rentalsData, error: rentalsError } = await supabase
-      .from('rentals')
-      .select('*, students(*)')
-      .eq('is_active', true);
-
-    if (rentalsError) {
-      console.error('Error fetching rentals:', rentalsError);
-    }
-
-    const cubiclesWithRentals = cubiclesData.map(cubicle => {
-      const activeRental = rentalsData?.find(r => r.cubicle_id === cubicle.id);
-      return {
-        id: cubicle.id,
-        isOccupied: cubicle.is_occupied,
-        student: activeRental?.students ? {
-          id: activeRental.students.id,
-          controlNumber: activeRental.students.control_number,
-          name: activeRental.students.name,
-          career: activeRental.students.career
-        } : undefined,
-        hours: activeRental?.hours,
-        startTime: activeRental?.start_time ? new Date(activeRental.start_time) : undefined
-      };
-    });
-
-    setCubicles(cubiclesWithRentals);
   };
 
   const fetchStudents = async () => {
-    const { data, error } = await supabase
-      .from('students')
-      .select('*')
-      .order('name');
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .select('id, control_number, name, career')
+        .order('name');
 
-    if (error) {
-      console.error('Error fetching students:', error);
+      if (error) throw error;
+
+      const formattedStudents: Student[] = data.map(s => ({
+        id: s.id,
+        controlNumber: s.control_number,
+        name: s.name,
+        career: s.career
+      }));
+
+      setStudents(formattedStudents);
+    } catch (error) {
       toast({
         title: "Error",
         description: "No se pudieron cargar los estudiantes",
         variant: "destructive"
       });
-      return;
     }
-
-    const formattedStudents = data.map(s => ({
-      id: s.id,
-      controlNumber: s.control_number,
-      name: s.name,
-      career: s.career
-    }));
-
-    setStudents(formattedStudents);
   };
 
   const refreshData = async () => {
@@ -127,23 +128,31 @@ export const CubiclesProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const rentCubicle = async (cubicleId: number, student: Student, hours: number) => {
-    const startTime = new Date();
-    const endTime = new Date(startTime);
-    endTime.setHours(endTime.getHours() + hours);
+    try {
+      const startTime = new Date();
+      const endTime = new Date(startTime);
+      endTime.setHours(endTime.getHours() + hours);
 
-    const { error } = await supabase
-      .from('rentals')
-      .insert({
-        cubicle_id: cubicleId,
-        student_id: student.id!,
-        hours,
-        start_time: startTime.toISOString(),
-        end_time: endTime.toISOString(),
-        is_active: true
+      const { error } = await supabase
+        .from('rentals')
+        .insert({
+          cubicle_id: cubicleId,
+          student_id: student.id!,
+          hours,
+          start_time: startTime.toISOString(),
+          end_time: endTime.toISOString(),
+          is_active: true
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "¡Éxito!",
+        description: `Cubículo ${cubicleId} rentado por ${hours} ${hours === 1 ? 'hora' : 'horas'}`
       });
 
-    if (error) {
-      console.error('Error renting cubicle:', error);
+      await fetchCubicles();
+    } catch (error) {
       toast({
         title: "Error",
         description: "No se pudo rentar el cubículo",
@@ -151,111 +160,115 @@ export const CubiclesProvider = ({ children }: { children: ReactNode }) => {
       });
       throw error;
     }
-
-    toast({
-      title: "¡Éxito!",
-      description: `Cubículo ${cubicleId} rentado por ${hours} horas`
-    });
-
-    await fetchCubicles();
   };
 
   const releaseCubicle = async (cubicleId: number) => {
-    // Find active rental for this cubicle
-    const { data: activeRental, error: fetchError } = await supabase
-      .from('rentals')
-      .select('id')
-      .eq('cubicle_id', cubicleId)
-      .eq('is_active', true)
-      .single();
+    try {
+      const { data: activeRental, error: fetchError } = await supabase
+        .from('rentals')
+        .select('id')
+        .eq('cubicle_id', cubicleId)
+        .eq('is_active', true)
+        .maybeSingle();
 
-    if (fetchError) {
-      console.error('Error finding active rental:', fetchError);
+      if (fetchError) throw fetchError;
+      
+      if (!activeRental) {
+        toast({
+          title: "Error",
+          description: "No se encontró una renta activa",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const { error } = await supabase
+        .from('rentals')
+        .update({ is_active: false })
+        .eq('id', activeRental.id);
+
+      if (error) throw error;
+
       toast({
-        title: "Error",
-        description: "No se encontró una renta activa",
-        variant: "destructive"
+        title: "¡Liberado!",
+        description: `Cubículo ${cubicleId} ahora está disponible`
       });
-      return;
-    }
 
-    const { error } = await supabase
-      .from('rentals')
-      .update({ is_active: false })
-      .eq('id', activeRental.id);
-
-    if (error) {
-      console.error('Error releasing cubicle:', error);
+      await fetchCubicles();
+    } catch (error) {
       toast({
         title: "Error",
         description: "No se pudo liberar el cubículo",
         variant: "destructive"
       });
-      throw error;
     }
-
-    toast({
-      title: "¡Liberado!",
-      description: `Cubículo ${cubicleId} ahora está disponible`
-    });
-
-    await fetchCubicles();
   };
 
   const addStudent = async (student: Student): Promise<Student | null> => {
-    const { data, error } = await supabase
-      .from('students')
-      .insert({
-        control_number: student.controlNumber,
-        name: student.name,
-        career: student.career
-      })
-      .select()
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .insert({
+          control_number: student.controlNumber,
+          name: student.name,
+          career: student.career
+        })
+        .select('id, control_number, name, career')
+        .single();
 
-    if (error) {
-      console.error('Error adding student:', error);
+      if (error) throw error;
+
+      toast({
+        title: "¡Registrado!",
+        description: `Estudiante ${student.name} agregado exitosamente`
+      });
+
+      await fetchStudents();
+      
+      return {
+        id: data.id,
+        controlNumber: data.control_number,
+        name: data.name,
+        career: data.career
+      };
+    } catch (error: any) {
+      const message = error.message?.includes('duplicate') 
+        ? "Este número de control ya existe" 
+        : "No se pudo agregar el estudiante";
+      
       toast({
         title: "Error",
-        description: error.message.includes('duplicate') 
-          ? "Este número de control ya existe" 
-          : "No se pudo agregar el estudiante",
+        description: message,
         variant: "destructive"
       });
       return null;
     }
-
-    toast({
-      title: "¡Registrado!",
-      description: `Estudiante ${student.name} agregado exitosamente`
-    });
-
-    await fetchStudents();
-    
-    return {
-      id: data.id,
-      controlNumber: data.control_number,
-      name: data.name,
-      career: data.career
-    };
   };
 
   const importStudents = async (newStudents: Student[]) => {
-    const studentsToInsert = newStudents.map(s => ({
-      control_number: s.controlNumber,
-      name: s.name,
-      career: s.career
-    }));
+    try {
+      const studentsToInsert = newStudents.map(s => ({
+        control_number: s.controlNumber,
+        name: s.name,
+        career: s.career
+      }));
 
-    const { error } = await supabase
-      .from('students')
-      .upsert(studentsToInsert, { 
-        onConflict: 'control_number',
-        ignoreDuplicates: false 
+      const { error } = await supabase
+        .from('students')
+        .upsert(studentsToInsert, { 
+          onConflict: 'control_number',
+          ignoreDuplicates: false 
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "¡Importación exitosa!",
+        description: `${newStudents.length} ${newStudents.length === 1 ? 'estudiante importado' : 'estudiantes importados'}`
       });
 
-    if (error) {
-      console.error('Error importing students:', error);
+      await fetchStudents();
+    } catch (error) {
       toast({
         title: "Error",
         description: "No se pudieron importar todos los estudiantes",
@@ -263,13 +276,6 @@ export const CubiclesProvider = ({ children }: { children: ReactNode }) => {
       });
       throw error;
     }
-
-    toast({
-      title: "¡Importación exitosa!",
-      description: `${newStudents.length} estudiantes importados`
-    });
-
-    await fetchStudents();
   };
 
   return (

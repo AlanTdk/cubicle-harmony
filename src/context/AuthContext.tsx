@@ -25,60 +25,67 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRole = async (userId: string): Promise<UserRole> => {
     try {
       const { data, error } = await supabase
         .from('user_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching role:', error);
-        return null;
-      }
-
-      return data?.role as UserRole;
+      if (error) throw error;
+      return (data?.role as UserRole) || null;
     } catch (error) {
-      console.error('Error fetching role:', error);
       return null;
     }
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Defer role fetching with setTimeout
-        if (session?.user) {
-          setTimeout(() => {
-            fetchUserRole(session.user.id).then(setRole);
-          }, 0);
-        } else {
-          setRole(null);
-        }
-      }
-    );
+    let mounted = true;
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const initAuth = async () => {
+      // Get initial session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!mounted) return;
+      
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchUserRole(session.user.id).then((userRole) => {
+        const userRole = await fetchUserRole(session.user.id);
+        if (mounted) {
           setRole(userRole);
           setLoading(false);
-        });
+        }
       } else {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
-    });
+    };
 
-    return () => subscription.unsubscribe();
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (!mounted) return;
+        
+        setSession(session);
+        setUser(session?.user ?? null);
+        
+        if (session?.user) {
+          const userRole = await fetchUserRole(session.user.id);
+          if (mounted) setRole(userRole);
+        } else {
+          if (mounted) setRole(null);
+        }
+      }
+    );
+
+    initAuth();
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -119,28 +126,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (error) throw error;
 
       if (data.user && userRole) {
-        // Insert role for new user
         const { error: roleError } = await supabase
           .from('user_roles')
           .insert({ user_id: data.user.id, role: userRole });
 
         if (roleError) {
-          console.error('Error assigning role:', roleError);
           toast.error('Usuario creado pero error al asignar rol');
-        } else {
-          setRole(userRole);
-          toast.success('Cuenta creada exitosamente');
-          navigate('/');
+          return { error: roleError };
         }
+        
+        setRole(userRole);
+        toast.success('Cuenta creada exitosamente');
+        navigate('/');
       }
 
       return { error: null };
     } catch (error: any) {
-      if (error.message.includes('already registered')) {
-        toast.error('Este correo ya está registrado');
-      } else {
-        toast.error(error.message || 'Error al crear cuenta');
-      }
+      const message = error.message?.includes('already registered') 
+        ? 'Este correo ya está registrado'
+        : 'Error al crear cuenta';
+      toast.error(message);
       return { error };
     }
   };

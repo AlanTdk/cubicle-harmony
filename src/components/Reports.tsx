@@ -71,46 +71,58 @@ export const Reports = () => {
     try {
       const { data: rentalsData, error } = await supabase
         .from('rentals')
-        .select('*, students(name)')
+        .select('cubicle_id, hours, students!inner(name)')
         .gte('start_time', startDate.toISOString())
-        .lte('start_time', endDate.toISOString());
+        .lte('start_time', endDate.toISOString())
+        .order('start_time', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching report data:', error);
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los datos del reporte",
-          variant: "destructive"
+      if (error) throw error;
+
+      if (!rentalsData || rentalsData.length === 0) {
+        setReportData({
+          totalRentals: 0,
+          totalHours: 0,
+          cubicleUsage: {},
+          topStudents: []
         });
         return;
       }
 
-      const data: ReportData = {
-        totalRentals: rentalsData?.length || 0,
-        totalHours: rentalsData?.reduce((sum, r) => sum + r.hours, 0) || 0,
-        cubicleUsage: {},
-        topStudents: []
-      };
-
-      rentalsData?.forEach(rental => {
-        data.cubicleUsage[rental.cubicle_id] = (data.cubicleUsage[rental.cubicle_id] || 0) + 1;
-      });
-
-      // Calculate top students
+      const cubicleUsage: { [key: number]: number } = {};
       const studentRentals: { [key: string]: number } = {};
-      rentalsData?.forEach(rental => {
+      let totalHours = 0;
+
+      rentalsData.forEach(rental => {
+        totalHours += rental.hours;
+        cubicleUsage[rental.cubicle_id] = (cubicleUsage[rental.cubicle_id] || 0) + 1;
+        
         const studentName = rental.students?.name || 'Desconocido';
         studentRentals[studentName] = (studentRentals[studentName] || 0) + 1;
       });
 
-      data.topStudents = Object.entries(studentRentals)
+      const topStudents = Object.entries(studentRentals)
         .map(([name, rentals]) => ({ name, rentals }))
         .sort((a, b) => b.rentals - a.rentals)
         .slice(0, 5);
 
-      setReportData(data);
+      setReportData({
+        totalRentals: rentalsData.length,
+        totalHours,
+        cubicleUsage,
+        topStudents
+      });
     } catch (error) {
-      console.error('Error in fetchReportData:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los datos del reporte",
+        variant: "destructive"
+      });
+      setReportData({
+        totalRentals: 0,
+        totalHours: 0,
+        cubicleUsage: {},
+        topStudents: []
+      });
     }
   };
 
